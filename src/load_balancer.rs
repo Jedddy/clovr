@@ -2,30 +2,47 @@ use std::{
     net::{TcpStream, Shutdown},
     io::Write,
 };
-use super::http::read_data;
+use crate::threadpool::ThreadPool;
+use crate::http::read_data;
 
-
-pub struct LoadBalancer;
+pub struct LoadBalancer {
+    servers: Vec<String>,
+    server_count: usize,
+    pool: ThreadPool
+}
 
 impl LoadBalancer {
-    pub fn handle(mut stream: TcpStream, server: &str) {
-        let data = read_data(&stream);
+    pub fn new(servers: Vec<String>, pool: ThreadPool) -> Self {
+        let server_count = servers.len();
+        Self { servers, pool, server_count }
+    }
 
-        let mut server = match TcpStream::connect(server) {
-            Ok(server) => server,
-            Err(_) => {
-                stream.shutdown(Shutdown::Both).unwrap();
-                return
-            }
-        };
+    pub fn handle(&mut self, mut stream: TcpStream) {
+        if self.server_count > 1 {
+            self.servers.rotate_left(1);
+        }
 
-        server.write_all(&data).unwrap();
+        let server = self.servers[0].clone();
 
-        let mut data = read_data(&server);
-        let mut body = read_data(&server);
-        data.append(&mut body);
+        self.pool.execute(move || {
+            let data = read_data(&stream);
 
-        stream.write_all(&data).unwrap();
-        stream.flush().unwrap();
+            let mut server = match TcpStream::connect(server) {
+                Ok(server) => server,
+                Err(_) => {
+                    stream.shutdown(Shutdown::Both).unwrap();
+                    return
+                }
+            };
+
+            server.write_all(&data).unwrap();
+
+            let mut data = read_data(&server);
+            let mut body = read_data(&server);
+            data.append(&mut body);
+
+            stream.write_all(&data).unwrap();
+            stream.flush().unwrap();
+        })
     }
 }
