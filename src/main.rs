@@ -22,7 +22,9 @@ fn main() {
         .expect("Could not bind to address");
 
     for stream in listener.incoming() {
-        let stream = stream.unwrap();
-        load_balancer.handle(stream);
+        match stream {
+            Ok(stream) => load_balancer.handle(stream),
+            Err(e) => eprintln!("An error occured: {e}")
+        }
     }
 }
