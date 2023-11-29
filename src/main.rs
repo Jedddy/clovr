@@ -18,8 +18,11 @@ fn main() {
     let pool = ThreadPool::new(10);
     let mut load_balancer = LoadBalancer::new(servers, pool);
 
-    let listener = TcpListener::bind("127.0.0.1:8000")
+    let addr = "127.0.0.1:8000";
+    let listener = TcpListener::bind(addr)
         .expect("Could not bind to address");
+
+    println!("Listening in: {addr}");
 
     for stream in listener.incoming() {
         match stream {
