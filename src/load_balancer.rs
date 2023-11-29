@@ -27,6 +27,11 @@ impl LoadBalancer {
         self.pool.execute(move || {
             let data = read_data(&stream);
 
+            if data.len() < 1 {
+                stream.shutdown(Shutdown::Both).unwrap();
+                return;
+            }
+
             let mut server = match TcpStream::connect(server) {
                 Ok(server) => server,
                 Err(_) => {
